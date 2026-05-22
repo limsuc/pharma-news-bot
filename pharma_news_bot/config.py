@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
+TRUE_VALUES = {"1", "true", "yes", "y"}
 
 
 @dataclass(frozen=True)
@@ -30,6 +31,26 @@ class Settings:
     trusted_rss_include_all: bool
     rss_feeds: list[str] = field(default_factory=list)
     naver_queries: list[str] = field(default_factory=list)
+
+
+def _env(name: str, fallback: str) -> str:
+    value = os.getenv(name)
+    if value is None or value.strip() == "":
+        return fallback
+    return value.strip()
+
+
+def _int_env(name: str, fallback: int) -> int:
+    return int(_env(name, str(fallback)))
+
+
+def _float_env(name: str, fallback: float) -> float:
+    return float(_env(name, str(fallback)))
+
+
+def _bool_env(name: str, fallback: bool) -> bool:
+    fallback_text = "true" if fallback else "false"
+    return _env(name, fallback_text).lower() in TRUE_VALUES
 
 
 def _csv_env(name: str, fallback: list[str]) -> list[str]:
@@ -57,23 +78,23 @@ def load_settings() -> Settings:
 
     return Settings(
         telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN"),
-        telegram_channel=os.getenv("TELEGRAM_CHANNEL", "@dailypharmnews"),
+        telegram_channel=_env("TELEGRAM_CHANNEL", "@dailypharmnews"),
         naver_client_id=os.getenv("NAVER_CLIENT_ID"),
         naver_client_secret=os.getenv("NAVER_CLIENT_SECRET"),
-        max_news=int(os.getenv("MAX_NEWS", "12")),
-        db_path=ROOT_DIR / os.getenv("DB_PATH", "sent_news.db"),
-        log_dir=ROOT_DIR / os.getenv("LOG_DIR", "logs"),
-        telegram_retry_count=int(os.getenv("TELEGRAM_RETRY_COUNT", "3")),
-        telegram_retry_delay_seconds=float(os.getenv("TELEGRAM_RETRY_DELAY_SECONDS", "3")),
-        request_timeout_seconds=int(os.getenv("REQUEST_TIMEOUT_SECONDS", "15")),
-        naver_display=int(os.getenv("NAVER_DISPLAY", "50")),
-        max_article_age_days=int(os.getenv("MAX_ARTICLE_AGE_DAYS", "7")),
-        rss_limit_per_feed=int(os.getenv("RSS_LIMIT_PER_FEED", "30")),
-        dailypharm_priority_bonus=int(os.getenv("DAILYPHARM_PRIORITY_BONUS", "8")),
-        dry_run=os.getenv("DRY_RUN", "false").lower() in {"1", "true", "yes", "y"},
-        bot_paused=os.getenv("BOT_PAUSED", "false").lower() in {"1", "true", "yes", "y"},
-        skip_korea_holidays=os.getenv("SKIP_KOREA_HOLIDAYS", "true").lower() in {"1", "true", "yes", "y"},
-        trusted_rss_include_all=os.getenv("TRUSTED_RSS_INCLUDE_ALL", "true").lower() in {"1", "true", "yes", "y"},
+        max_news=_int_env("MAX_NEWS", 12),
+        db_path=ROOT_DIR / _env("DB_PATH", "sent_news.db"),
+        log_dir=ROOT_DIR / _env("LOG_DIR", "logs"),
+        telegram_retry_count=_int_env("TELEGRAM_RETRY_COUNT", 3),
+        telegram_retry_delay_seconds=_float_env("TELEGRAM_RETRY_DELAY_SECONDS", 3),
+        request_timeout_seconds=_int_env("REQUEST_TIMEOUT_SECONDS", 15),
+        naver_display=_int_env("NAVER_DISPLAY", 50),
+        max_article_age_days=_int_env("MAX_ARTICLE_AGE_DAYS", 7),
+        rss_limit_per_feed=_int_env("RSS_LIMIT_PER_FEED", 30),
+        dailypharm_priority_bonus=_int_env("DAILYPHARM_PRIORITY_BONUS", 8),
+        dry_run=_bool_env("DRY_RUN", False),
+        bot_paused=_bool_env("BOT_PAUSED", False),
+        skip_korea_holidays=_bool_env("SKIP_KOREA_HOLIDAYS", True),
+        trusted_rss_include_all=_bool_env("TRUSTED_RSS_INCLUDE_ALL", True),
         rss_feeds=_csv_env("RSS_FEEDS", default_rss),
         naver_queries=_csv_env("NAVER_QUERIES", default_queries),
     )
