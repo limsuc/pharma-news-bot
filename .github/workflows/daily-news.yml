@@ -42,6 +42,10 @@ jobs:
           TELEGRAM_RETRY_COUNT: "3"
           DAILYPHARM_PRIORITY_BONUS: "8"
           BOT_PAUSED: ${{ vars.BOT_PAUSED }}
+          DRY_RUN: ${{ vars.DRY_RUN }}
+          SKIP_KOREA_HOLIDAYS: ${{ vars.SKIP_KOREA_HOLIDAYS }}
+          TRUSTED_RSS_INCLUDE_ALL: ${{ vars.TRUSTED_RSS_INCLUDE_ALL }}
+          MAX_ARTICLE_AGE_DAYS: ${{ vars.MAX_ARTICLE_AGE_DAYS }}
         run: python main.py
 
       - name: Upload operation logs
