@@ -1,0 +1,11 @@
+.env
+sent_news.db
+sent_news_test.db
+sent_news_*.db
+test-write.db
+logs/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
