@@ -1,13 +1,35 @@
+from email.utils import parsedate_to_datetime
+from datetime import datetime, timedelta, timezone
+import re
+
 from .classifier import BASE_KEYWORDS, CATEGORY_ORDER, classify
 from .models import NewsItem
 from .storage import NewsStore
-from .text import article_id, canonical_link, shorten_title, title_key
-from email.utils import parsedate_to_datetime
-from datetime import datetime, timedelta, timezone
+from .text import article_id, canonical_link, normalize_text, shorten_title, title_key
 
 
 SECTION_LIMIT = 3
 KST = timezone(timedelta(hours=9))
+NEAR_DUPLICATE_THRESHOLD = 0.58
+STOPWORDS = {
+    "제약",
+    "바이오",
+    "뉴스",
+    "단독",
+    "속보",
+    "종합",
+    "기자",
+    "오늘",
+    "국내",
+    "글로벌",
+    "관련",
+    "통해",
+    "한다",
+    "했다",
+    "된다",
+    "위해",
+    "대한",
+}
 
 
 def is_relevant(item: NewsItem) -> bool:
@@ -62,6 +84,36 @@ def _is_recent(item: NewsItem, max_article_age_days: int) -> bool:
     return published.astimezone(KST) >= cutoff
 
 
+def _news_tokens(item: NewsItem) -> set[str]:
+    text = normalize_text(f"{item.title} {item.summary}")
+    tokens = re.findall(r"[0-9A-Za-z가-힣]+", text.lower())
+    return {token for token in tokens if len(token) > 1 and token not in STOPWORDS}
+
+
+def _similarity(left: set[str], right: set[str]) -> float:
+    if not left or not right:
+        return 0.0
+    intersection = len(left & right)
+    if intersection < 3:
+        return 0.0
+    union = len(left | right)
+    return intersection / union
+
+
+def _remove_near_duplicates(items: list[NewsItem]) -> list[NewsItem]:
+    selected: list[NewsItem] = []
+    selected_token_sets: list[set[str]] = []
+
+    for item in items:
+        tokens = _news_tokens(item)
+        if any(_similarity(tokens, seen) >= NEAR_DUPLICATE_THRESHOLD for seen in selected_token_sets):
+            continue
+        selected.append(item)
+        selected_token_sets.append(tokens)
+
+    return selected
+
+
 def dedupe_rank(
     items: list[NewsItem],
     store: NewsStore,
@@ -99,4 +151,5 @@ def dedupe_rank(
         candidates.append(item)
 
     candidates.sort(key=lambda item: item.score, reverse=True)
+    candidates = _remove_near_duplicates(candidates)
     return _pick_by_section(candidates, max_news)
