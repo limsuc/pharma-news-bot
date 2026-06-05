@@ -1,6 +1,7 @@
 import logging
 
 from .calendar import is_korea_public_holiday, today_kst_date
+from .collectors.dailypharm import DailyPharmCollector
 from .collectors.naver import NaverNewsCollector
 from .collectors.rss import RssCollector
 from .config import Settings
@@ -37,6 +38,7 @@ class NewsPipeline:
 
         items = []
         collectors = [
+            ("dailypharm", DailyPharmCollector(self.settings)),
             ("naver", NaverNewsCollector(self.settings)),
             ("rss", RssCollector(self.settings)),
         ]

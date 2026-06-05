@@ -41,6 +41,8 @@ jobs:
           DB_PATH: sent_news.db
           LOG_DIR: logs
           TELEGRAM_RETRY_COUNT: "3"
+          DAILYPHARM_ENABLED: "true"
+          DAILYPHARM_LIMIT: "12"
           DAILYPHARM_PRIORITY_BONUS: "8"
           BOT_PAUSED: ${{ vars.BOT_PAUSED }}
           DRY_RUN: ${{ vars.DRY_RUN }}

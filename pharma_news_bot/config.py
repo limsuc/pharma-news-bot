@@ -24,6 +24,8 @@ class Settings:
     naver_display: int
     max_article_age_days: int
     rss_limit_per_feed: int
+    dailypharm_enabled: bool
+    dailypharm_limit: int
     dailypharm_priority_bonus: int
     dry_run: bool
     bot_paused: bool
@@ -90,6 +92,8 @@ def load_settings() -> Settings:
         naver_display=_int_env("NAVER_DISPLAY", 50),
         max_article_age_days=_int_env("MAX_ARTICLE_AGE_DAYS", 7),
         rss_limit_per_feed=_int_env("RSS_LIMIT_PER_FEED", 30),
+        dailypharm_enabled=_bool_env("DAILYPHARM_ENABLED", True),
+        dailypharm_limit=_int_env("DAILYPHARM_LIMIT", 12),
         dailypharm_priority_bonus=_int_env("DAILYPHARM_PRIORITY_BONUS", 8),
         dry_run=_bool_env("DRY_RUN", False),
         bot_paused=_bool_env("BOT_PAUSED", False),
