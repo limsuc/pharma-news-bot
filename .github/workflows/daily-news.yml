@@ -2,9 +2,9 @@ name: Daily Pharma News
 
 on:
   schedule:
-    # 08:10 KST Monday-Friday = 23:10 UTC Sunday-Thursday.
-    # GitHub can delay or drop scheduled runs at the top of the hour.
-    - cron: "10 23 * * 0-4"
+    # 07:05 KST Monday-Friday = 22:05 UTC Sunday-Thursday.
+    # The job waits until 09:00 KST if GitHub starts it early.
+    - cron: "5 22 * * 0-4"
   workflow_dispatch:
 
 jobs:
@@ -12,6 +12,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Wait until 09:00 KST
+        if: github.event_name == 'schedule'
+        shell: bash
+        run: |
+          now=$(TZ=Asia/Seoul date +%s)
+          target=$(TZ=Asia/Seoul date -d 'today 09:00' +%s)
+          if [ "$now" -lt "$target" ]; then
+            sleep $((target - now))
+          fi
+
       - name: Checkout
         uses: actions/checkout@v6
 
