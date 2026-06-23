@@ -70,6 +70,7 @@ def load_settings() -> Settings:
         "https://www.dailymedipharm.com/rss/allArticle.xml",
     ]
     default_queries = [
+        "제약 CSO",
         "데일리팜 제약 바이오 신약 임상 급여 약가 CSO",
         "제약 바이오 신약 임상 FDA 식약처 급여 약가",
         "제약 CSO 영업대행 판매대행 수수료 리베이트",

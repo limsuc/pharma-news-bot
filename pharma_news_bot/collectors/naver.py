@@ -24,6 +24,7 @@ class NaverNewsCollector:
         results: list[NewsItem] = []
 
         for query in self.settings.naver_queries:
+            query_count = 0
             params = urllib.parse.urlencode(
                 {
                     "query": query,
@@ -54,6 +55,8 @@ class NaverNewsCollector:
                             meta={"query": query},
                         )
                     )
+                    query_count += 1
+                logger.info("Collected %s Naver news items for query=%s.", query_count, query)
             except urllib.error.HTTPError as exc:
                 detail = exc.read().decode("utf-8", errors="replace")
                 logger.warning("Naver query failed. query=%s status=%s detail=%s", query, exc.code, detail)
