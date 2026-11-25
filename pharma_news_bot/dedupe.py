@@ -12,23 +12,8 @@ SECTION_LIMIT = 3
 KST = timezone(timedelta(hours=9))
 NEAR_DUPLICATE_THRESHOLD = 0.58
 STOPWORDS = {
-    "제약",
-    "바이오",
-    "뉴스",
-    "단독",
-    "속보",
-    "종합",
-    "기자",
-    "오늘",
-    "국내",
-    "글로벌",
-    "관련",
-    "통해",
-    "한다",
-    "했다",
-    "된다",
-    "위해",
-    "대한",
+    "제약", "바이오", "뉴스", "단독", "속보", "종합", "기자", "오늘",
+    "국내", "글로벌", "관련", "통해", "한다", "했다", "된다", "위해", "대한",
 }
 
 
@@ -39,26 +24,13 @@ def is_relevant(item: NewsItem) -> bool:
 
 def _pick_by_section(items: list[NewsItem], max_news: int) -> list[NewsItem]:
     selected: list[NewsItem] = []
-    selected_ids: set[str] = set()
-
-    for category in CATEGORY_ORDER:
-        category_items = [item for item in items if item.category == category]
-        for item in category_items[:SECTION_LIMIT]:
+    sections = [[item for item in items if item.category == category] for category in CATEGORY_ORDER]
+    for index in range(SECTION_LIMIT):
+        for section in sections:
             if len(selected) >= max_news:
                 return selected
-            selected.append(item)
-            selected_ids.add(item.id)
-
-    if len(selected) >= max_news:
-        return selected
-
-    for item in items:
-        if item.id in selected_ids:
-            continue
-        selected.append(item)
-        if len(selected) >= max_news:
-            break
-
+            if index < len(section):
+                selected.append(section[index])
     return selected
 
 
@@ -84,10 +56,46 @@ def _is_recent(item: NewsItem, max_article_age_days: int) -> bool:
     return published.astimezone(KST) >= cutoff
 
 
-def _news_tokens(item: NewsItem) -> set[str]:
-    text = normalize_text(f"{item.title} {item.summary}")
+def _tokens(text: str) -> set[str]:
+    text = normalize_text(text)
     tokens = re.findall(r"[0-9A-Za-z가-힣]+", text.lower())
+    tokens = [re.sub(r"(에서는|에서|으로|은|는|을|를|의|와|과)$", "", token)
+              if len(token) >= 4 else token for token in tokens]
     return {token for token in tokens if len(token) > 1 and token not in STOPWORDS}
+
+
+def _title_bigrams(title: str) -> set[str]:
+    key = title_key(title)
+    return {key[index:index + 2] for index in range(len(key) - 1)}
+
+
+def _same_story(left: NewsItem, right: NewsItem) -> bool:
+    left_title, right_title = _tokens(left.title), _tokens(right.title)
+    shared = left_title & right_title
+    # An otherwise identical headline with a different entity is a separate story.
+    if len(left_title - right_title) == len(right_title - left_title) == 1:
+        return False
+    left_grams, right_grams = _title_bigrams(left.title), _title_bigrams(right.title)
+    total = len(left_grams) + len(right_grams)
+    title_similarity = 2 * len(left_grams & right_grams) / total if total else 0.0
+    # Keep different trial phases and numerical results as potential updates.
+    left_numbers = set(re.findall(r"\d+(?:\.\d+)?", left.title))
+    right_numbers = set(re.findall(r"\d+(?:\.\d+)?", right.title))
+    if left_numbers and right_numbers and left_numbers != right_numbers:
+        return False
+    if len(shared) >= 2 and title_similarity >= 0.65:
+        return True
+    anchors = shared - {"제약사", "임상", "허가", "승인", "신약", "발표", "결과", "개발", "출시"}
+    if len(anchors) >= 2 and len(shared) >= 3 and title_similarity >= 0.35:
+        return True
+    # Short summaries and Korean particles can dilute whole-article Jaccard overlap.
+    left_text = _tokens(f"{left.title} {left.summary}")
+    right_text = _tokens(f"{right.title} {right.summary}")
+    if _similarity(left_text, right_text) >= NEAR_DUPLICATE_THRESHOLD:
+        return True
+    shorter = min(len(left_text), len(right_text))
+    overlap = len(left_text & right_text) / shorter if shorter else 0.0
+    return len(shared) >= 2 and title_similarity >= 0.45 and overlap >= 0.45
 
 
 def _similarity(left: set[str], right: set[str]) -> float:
@@ -102,15 +110,10 @@ def _similarity(left: set[str], right: set[str]) -> float:
 
 def _remove_near_duplicates(items: list[NewsItem]) -> list[NewsItem]:
     selected: list[NewsItem] = []
-    selected_token_sets: list[set[str]] = []
-
     for item in items:
-        tokens = _news_tokens(item)
-        if any(_similarity(tokens, seen) >= NEAR_DUPLICATE_THRESHOLD for seen in selected_token_sets):
+        if any(_same_story(item, seen) for seen in selected):
             continue
         selected.append(item)
-        selected_token_sets.append(tokens)
-
     return selected
 
 
@@ -125,31 +128,24 @@ def dedupe_rank(
     seen_links: set[str] = set()
     seen_titles: set[str] = set()
     candidates: list[NewsItem] = []
-
     for item in items:
         if not _is_recent(item, max_article_age_days):
             continue
-
         trusted_rss_item = trusted_rss_include_all and item.source != "Naver News"
         if not trusted_rss_item and not is_relevant(item):
             continue
-
         link_key = canonical_link(item.link)
         name_key = title_key(item.title)
         if link_key in seen_links or name_key in seen_titles:
             continue
-
         item.id = article_id(item.title, item.link)
         if store.already_sent(item.id):
             continue
-
         item.short_title = shorten_title(item.title)
         classify(item, dailypharm_bonus)
-
         seen_links.add(link_key)
         seen_titles.add(name_key)
         candidates.append(item)
-
     candidates.sort(key=lambda item: item.score, reverse=True)
     candidates = _remove_near_duplicates(candidates)
     return _pick_by_section(candidates, max_news)
